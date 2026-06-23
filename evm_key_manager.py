@@ -58,6 +58,7 @@ ARGON2_LANES = 1              # parallelism (single-threaded)
 ARGON2_MEM_COST = 64 * 1024   # 64 MiB (in KiB)
 AES_NONCE_LEN = 12            # 96-bit nonce for AES-256-GCM
 AES_KEY_LEN = 32              # 256-bit AES key
+MAX_GENERATE_COUNT = 10_000   # safety upper bound (prevents accidental OOM)
 
 SECP256K1_ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 
@@ -221,10 +222,9 @@ def save_encrypted_csv(path: str, keys: list[dict[str, str]], password: str) -> 
         "data": base64.b64encode(ciphertext).decode(),
     }
 
-    with open(path, "w") as f:
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
         json.dump(container, f, separators=(",", ":"))
-
-    os.chmod(path, 0o600)
 
 
 def load_encrypted_csv(path: str, password: str) -> list[dict[str, str]]:
@@ -432,6 +432,9 @@ def main() -> None:
         if args.command == "generate":
             if args.count < 1:
                 print("Count must be ≥ 1.", file=sys.stderr)
+                sys.exit(1)
+            if args.count > MAX_GENERATE_COUNT:
+                print(f"Count must be ≤ {MAX_GENERATE_COUNT:,}.", file=sys.stderr)
                 sys.exit(1)
             cmd_generate(args.count, args.file)
         elif args.command == "list":
