@@ -19,7 +19,10 @@ Basic usage:
     python evm_key_manager.py export -f 20260623_a1f2.csv.enc --decrypt -o keys_plain.csv
 
     # Export keys re-encrypted with a different password
-    python evm_key_manager.py export -f 20260623_a1f2.csv.enc -o keys_backup.csv.enc
+    python3 evm_key_manager.py export -f 20260623_a1f2.csv.enc -o keys_backup.csv.enc
+
+    # Export address list only (safe to share)
+    python3 evm_key_manager.py addresses -f 20260623_a1f2.csv.enc
 """
 
 import argparse
@@ -313,6 +316,32 @@ def cmd_list(path: str | None) -> None:
     print()
 
 
+def cmd_addresses(path: str | None, output: str | None) -> None:
+    """Print or save address list only (no private keys exposed)."""
+    path = _resolve_read_path(path)
+
+    password = getpass.getpass("Password: ")
+    try:
+        keys = load_encrypted_csv(path, password)
+    except Exception as exc:
+        print(f"Failed to decrypt: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    lines = [k["address"] for k in keys]
+
+    if output:
+        with open(output, "w") as f:
+            f.write("\n".join(lines) + "\n")
+        os.chmod(output, 0o644)
+        print(f"Exported {len(keys)} address(es) to {output!r}")
+    else:
+        print()
+        for i, addr in enumerate(lines, 1):
+            print(f"  {i:>4}  {addr}")
+        print(f"\n  ─── {len(keys)} address(es) total ───")
+        print()
+
+
 def cmd_export(path: str | None, output: str, decrypt: bool) -> None:
     """Export keys — either as plaintext CSV or re-encrypted."""
     path = _resolve_read_path(path)
@@ -393,6 +422,7 @@ def main() -> None:
             "  %(prog)s generate 5\n"
             "  %(prog)s generate 3 -f my_keys.csv.enc\n"
             "  %(prog)s list -f 20260623_a1f2.csv.enc\n"
+            "  %(prog)s addresses -f 20260623_a1f2.csv.enc\n"
             "  %(prog)s export -f 20260623_a1f2.csv.enc --decrypt -o plain_keys.csv\n"
         ),
     )
@@ -415,6 +445,11 @@ def main() -> None:
     # --- list ---
     list_ = sub.add_parser("list", help="List all stored keys with private key and address")
     _add_file_arg(list_)
+
+    # --- addresses ---
+    addrs = sub.add_parser("addresses", help="Export address list only (safe to share)")
+    _add_file_arg(addrs)
+    addrs.add_argument("-o", "--output", default=None, help="Save to file instead of stdout")
 
     # --- export ---
     exp = sub.add_parser("export", help="Export keys (plaintext or re-encrypted)")
@@ -439,6 +474,8 @@ def main() -> None:
             cmd_generate(args.count, args.file)
         elif args.command == "list":
             cmd_list(args.file)
+        elif args.command == "addresses":
+            cmd_addresses(args.file, args.output)
         elif args.command == "export":
             cmd_export(args.file, args.output, args.decrypt)
         else:
