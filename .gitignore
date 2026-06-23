@@ -1,0 +1,16 @@
+# =============================================================================
+# EVM Key Manager — .gitignore
+# =============================================================================
+#
+# *.csv.enc files (Argon2id + AES-256-GCM encrypted)  ← SAFE to commit.
+# Plaintext CSV exports contain raw private keys      ← NEVER commit.
+#
+# =============================================================================
+
+# ---- Block plaintext key exports (contain raw private keys!) ----
+exported_keys.csv
+
+# ---- Python artifacts ----
+__pycache__/
+*.pyc
+*.pyo
